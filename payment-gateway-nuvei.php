@@ -1,10 +1,10 @@
 <?php
 /**
  * Plugin Name: Nuvei Payment Gateway for WooCommerce
- * Plugin URI: https://www.compoza.net/
+ * Plugin URI: https://github.com/wlady/payment-gateway-nuvei/
  * Description: Nuvei Payment Gateway for WooCommerce
  * Author: Vladimir Zabara <wlady2001@gmail.com>
- * Author URI: https://www.compoza.net/
+ * Author URI: https://github.com/wlady/
  * Version: 1.0.0
  * Text Domain: wc-nuvei
  * WC requires at least: 3.0

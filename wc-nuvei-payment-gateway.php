@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Nuvei Payment Gateway for WooCommerce
+ * Plugin Name: Payment Gateway for Nuvei on WooCommerce
  * Plugin URI: https://github.com/wlady/payment-gateway-nuvei/
- * Description: Nuvei Payment Gateway for WooCommerce
+ * Description: Payment Gateway for Nuvei on WooCommerce
  * Author: Vladimir Zabara <wlady2001@gmail.com>
  * Author URI: https://github.com/wlady/
  * Version: 1.0.0
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) or exit;
 
-define( 'NUVEI_SUPPORT_PHP', '7.0' );
+define( 'NUVEI_SUPPORT_PHP', '7.3' );
 define( 'NUVEI_SUPPORT_WP', '5.0' );
 define( 'NUVEI_SUPPORT_WC', '3.0' );
 define( 'NUVEI_DB_VERSION', '1.0' );
@@ -196,20 +196,20 @@ function wc_nuvei_gateway_init() {
 					'nuvei_endpoint' => [
 						'title'       => __( 'Payment XML End Point', 'wc-nuvei' ),
 						'type'        => 'text',
-						'description' => __( 'Contact Nuvei.com integration team to get correct URL.', 'wc-nuvei' ),
+						'description' => __( 'Contact Nuvei integration team to get correct URL.', 'wc-nuvei' ),
 					],
 
 					'nuvei_terminal_id' => [
 						'title'       => __( 'Terminal ID', 'wc-nuvei' ),
 						'type'        => 'text',
-						'description' => __( 'Retrieve the "Terminal ID" from your Nuvei.com merchant account.',
+						'description' => __( 'Retrieve the "Terminal ID" from your Nuvei merchant account.',
 							'wc-nuvei' ),
 					],
 
 					'nuvei_shared_secret' => [
 						'title'       => __( 'Shared Secret', 'wc-nuvei' ),
 						'type'        => 'text',
-						'description' => __( 'Retrieve the "Shared Secret" from your Nuvei.com merchant account.',
+						'description' => __( 'Retrieve the "Shared Secret" from your Nuvei merchant account.',
 							'wc-nuvei' ),
 					],
 
@@ -264,7 +264,7 @@ function wc_nuvei_gateway_init() {
 					<?php do_action( 'woocommerce_credit_card_form_start', $this->id ); ?>
 					<?php
 					foreach ( $fields as $field ) {
-						echo $field; // phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped
+						_e( $field );
 					}
 					?>
 					<?php do_action( 'woocommerce_credit_card_form_end', $this->id ); ?>
@@ -278,7 +278,7 @@ function wc_nuvei_gateway_init() {
 			 */
 			public function thankyou_page() {
 				if ( $this->instructions ) {
-					echo wpautop( wptexturize( $this->instructions ) );
+					_e( wpautop( wptexturize( $this->instructions ) ) );
 				}
 			}
 
@@ -293,9 +293,8 @@ function wc_nuvei_gateway_init() {
 			 * @param bool $plain_text
 			 */
 			public function email_instructions( $order, $sent_to_admin, $plain_text = false ) {
-
 				if ( $this->instructions && ! $sent_to_admin && $this->id === $order->payment_method && $order->has_status( 'on-hold' ) ) {
-					echo wpautop( wptexturize( $this->instructions ) ) . PHP_EOL;
+					_e( wpautop( wptexturize( $this->instructions . PHP_EOL ) ) );
 				}
 			}
 
@@ -321,7 +320,7 @@ function wc_nuvei_gateway_init() {
 				$settings = apply_filters( 'nuvei_settings', $settings );
 
 				if ( empty( $settings['endpoint'] ) || empty( $settings['terminal_id'] ) || empty( $settings['shared_secret'] ) ) {
-					wc_add_notice( esc_html__( 'Incorrect Nuvei Gateway Settings', 'wc-nuvei' ), 'error' );
+					wc_add_notice( esc_html__( 'Incorrect Payment Gateway for Nuvei Settings', 'wc-nuvei' ), 'error' );
 
 					return false;
 				}
@@ -383,86 +382,65 @@ Transaction Type: {$transaction_type}
     <CVV>{$card_cvc}</CVV>
 </PAYMENT>";
 
-				$curl = curl_init();
-
-				curl_setopt_array( $curl, [
-					CURLOPT_URL            => $settings['endpoint'],
-					CURLOPT_RETURNTRANSFER => true,
-					CURLOPT_ENCODING       => 'UTF-8',
-					CURLOPT_MAXREDIRS      => 3,
-					CURLOPT_TIMEOUT        => 30,
-					CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
-					CURLOPT_CUSTOMREQUEST  => 'POST',
-					CURLOPT_POSTFIELDS     => $xml_request,
-					CURLOPT_HTTPHEADER     => [
+				$args = [
+					'body'        => $xml_request,
+					'timeout'     => '10',
+					'redirection' => '3',
+					'blocking'    => true,
+					'headers'     => [
 						'Cache-Control: no-cache',
 						'Content-Type: application/xml',
 					],
-				] );
+				];
 
-				$response = curl_exec( $curl );
-
-				$err = curl_error( $curl );
-
-				curl_close( $curl );
-
-				if ( $err ) {
-					wc_add_notice( esc_html__( $err ), 'error' );
+				$response = wp_remote_post( $settings['endpoint'], $args );
+				$body = wp_remote_retrieve_body( $response );
+				$array_data = json_decode( json_encode( simplexml_load_string( $body ) ), true );
+				if ( isset( $array_data['ERRORSTRING'] ) ) {
+					wc_add_notice( esc_html__( $array_data['ERRORSTRING'] ), 'error' );
 					wc_get_logger()->critical(
-						sprintf( 'CURL Error: %s, %s', $err, $log_info ),
+						sprintf( 'Transaction Error: %s, %s', $array_data['ERRORSTRING'], $log_info ),
 						[
 							'source' => 'nuvei-errors',
 						]
 					);
 
 					return false;
-				} else {
-					$array_data = json_decode( json_encode( simplexml_load_string( $response ) ), true );
-					if ( isset( $array_data['ERRORSTRING'] ) ) {
-						wc_add_notice( esc_html__( $array_data['ERRORSTRING'] ), 'error' );
-						wc_get_logger()->critical(
-							sprintf( 'Transaction Error: %s, %s', $array_data['ERRORSTRING'], $log_info ),
-							[
-								'source' => 'nuvei-errors',
-							]
-						);
+				} elseif ( isset( $array_data['RESPONSECODE'] ) && in_array( $array_data['RESPONSECODE'],
+						[ 'A', 'R' ] ) ) {
+					// transaction approved
+					$order->payment_complete( $array_data['UNIQUEREF'] );
+					// Reduce stock levels
+					$order->reduce_order_stock();
+					// Remove cart
+					WC()->cart->empty_cart();
+					// save transaction responce
+					global $wpdb;
+					$wpdb->insert( $wpdb->prefix . 'nuvei_transactions', [
+						'order_id'   => $order_id,
+						'unique_ref' => $array_data['UNIQUEREF'],
+						'data'       => serialize( $body ),
+						'date_time'  => date( 'Y-m-d H:i:s', strtotime( $array_data['DATETIME'] ) ),
+					] );
 
-						return false;
-					} elseif ( isset( $array_data['RESPONSECODE'] ) && in_array( $array_data['RESPONSECODE'],
-							[ 'A', 'R' ] ) ) {
-						// transaction approved
-						$order->payment_complete( $array_data['UNIQUEREF'] );
-						// Reduce stock levels
-						$order->reduce_order_stock();
-						// Remove cart
-						WC()->cart->empty_cart();
-						// save transaction responce
-						global $wpdb;
-						$wpdb->insert( $wpdb->prefix . 'nuvei_transactions', [
-							'order_id'   => $order_id,
-							'unique_ref' => $array_data['UNIQUEREF'],
-							'data'       => $response,
-							'date_time'  => date( 'Y-m-d H:i:s', strtotime( $array_data['DATETIME'] ) ),
-						] );
+					// Return thankyou redirect
+					return [
+						'result'   => 'success',
+						'redirect' => $this->get_return_url( $order ),
+					];
+				} elseif ( isset( $array_data['RESPONSETEXT'] ) ) {
+					wc_add_notice( esc_html__( $array_data['RESPONSETEXT'] ), 'error' );
+					wc_get_logger()->critical(
+						sprintf( 'Transaction Error: %s, %s', $array_data['RESPONSETEXT'], $log_info ),
+						[
+							'source' => 'nuvei-errors',
+						]
+					);
 
-						// Return thankyou redirect
-						return [
-							'result'   => 'success',
-							'redirect' => $this->get_return_url( $order ),
-						];
-					} elseif ( isset( $array_data['RESPONSETEXT'] ) ) {
-						wc_add_notice( esc_html__( $array_data['RESPONSETEXT'] ), 'error' );
-						wc_get_logger()->critical(
-							sprintf( 'Transaction Error: %s, %s', $array_data['RESPONSETEXT'], $log_info ),
-							[
-								'source' => 'nuvei-errors',
-							]
-						);
-
-						return false;
-					}
+					return false;
 				}
-				wc_add_notice( esc_html__( 'Unknown Nuvei Gateway Error', 'wc-nuvei' ), 'error' );
+
+				wc_add_notice( esc_html__( 'Unknown Payment Gateway for Nuveiy Error', 'wc-nuvei' ), 'error' );
 			}
 
 			/**
@@ -533,7 +511,7 @@ Transaction Type: {$transaction_type}
 					// Add notice
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Nuvei Gateway</strong> requires PHP version %s or later.',
+						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires PHP version %s or later.',
 								NUVEI_SUPPORT_PHP ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -544,7 +522,7 @@ Transaction Type: {$transaction_type}
 				if ( ! $this->wp_version_gte( NUVEI_SUPPORT_WP ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Nuvei Gateway</strong> requires WordPress version %s or later. Please update WordPress to use this plugin.',
+						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires WordPress version %s or later. Please update WordPress to use this plugin.',
 								NUVEI_SUPPORT_WP ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -555,7 +533,7 @@ Transaction Type: {$transaction_type}
 				if ( ! class_exists( 'WooCommerce' ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( '<strong>Nuvei Gateway</strong> requires WooCommerce to be active.',
+						     . esc_html__( '<strong>Payment Gateway for Nuvei</strong> requires WooCommerce to be active.',
 								'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -563,7 +541,7 @@ Transaction Type: {$transaction_type}
 				} elseif ( ! $this->wc_version_gte( NUVEI_SUPPORT_WC ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Nuvei Gateway</strong> requires WooCommerce version %s or later.',
+						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires WooCommerce version %s or later.',
 								NUVEI_SUPPORT_WC ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );

@@ -1,12 +1,15 @@
 <?php
 /**
- * Plugin Name: Payment Gateway for Nuvei on WooCommerce
+ * Plugin Name: WooCommerce Nuvei Gateway
  * Plugin URI: https://github.com/wlady/payment-gateway-nuvei/
- * Description: Payment Gateway for Nuvei on WooCommerce
+ * Description: WooCommerce Nuvei Gateway
  * Author: Vladimir Zabara <wlady2001@gmail.com>
  * Author URI: https://github.com/wlady/
- * Version: 1.0.0
+ * Version: 2.0.0
  * Text Domain: wc-nuvei
+ * Requires PHP: 7.3
+ * Requires at least: 4.7
+ * Tested up to: 6.0
  * WC requires at least: 3.0
  * WC tested up to: 6.2
  * License: GNU General Public License v3.0
@@ -320,7 +323,7 @@ function wc_nuvei_gateway_init() {
 				$settings = apply_filters( 'nuvei_settings', $settings );
 
 				if ( empty( $settings['endpoint'] ) || empty( $settings['terminal_id'] ) || empty( $settings['shared_secret'] ) ) {
-					wc_add_notice( esc_html__( 'Incorrect Payment Gateway for Nuvei Settings', 'wc-nuvei' ), 'error' );
+					wc_add_notice( esc_html__( 'Incorrect WooCommerce Nuvei Gateway Settings', 'wc-nuvei' ), 'error' );
 
 					return false;
 				}
@@ -440,7 +443,7 @@ Transaction Type: {$transaction_type}
 					return false;
 				}
 
-				wc_add_notice( esc_html__( 'Unknown Payment Gateway for Nuveiy Error', 'wc-nuvei' ), 'error' );
+				wc_add_notice( esc_html__( 'Unknown WooCommerce Nuvei Gateway Error', 'wc-nuvei' ), 'error' );
 			}
 
 			/**
@@ -461,7 +464,7 @@ Transaction Type: {$transaction_type}
 
 				$res = $wpdb->get_results(
 					$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}nuvei_transactions WHERE order_id=%d", $order_id ),
-					OBJECT
+					ARRAY_N
 				);
 				if ( ! empty( $res ) ) {
 					$details['transaction'] = $res[0];
@@ -511,7 +514,7 @@ Transaction Type: {$transaction_type}
 					// Add notice
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires PHP version %s or later.',
+						     . esc_html__( sprintf( 'WooCommerce Nuvei Gateway requires PHP version %s or later.',
 								NUVEI_SUPPORT_PHP ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -522,7 +525,7 @@ Transaction Type: {$transaction_type}
 				if ( ! $this->wp_version_gte( NUVEI_SUPPORT_WP ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires WordPress version %s or later. Please update WordPress to use this plugin.',
+						     . esc_html__( sprintf( 'WooCommerce Nuvei Gateway requires WordPress version %s or later. Please update WordPress to use this plugin.',
 								NUVEI_SUPPORT_WP ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -533,7 +536,7 @@ Transaction Type: {$transaction_type}
 				if ( ! class_exists( 'WooCommerce' ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( '<strong>Payment Gateway for Nuvei</strong> requires WooCommerce to be active.',
+						     . esc_html__( 'WooCommerce Nuvei Gateway requires WooCommerce to be active.',
 								'wc-nuvei' )
 						     . '</p></div>';
 					} );
@@ -541,7 +544,7 @@ Transaction Type: {$transaction_type}
 				} elseif ( ! $this->wc_version_gte( NUVEI_SUPPORT_WC ) ) {
 					add_action( 'admin_notices', function () {
 						echo '<div class="error"><p>'
-						     . esc_html__( sprintf( '<strong>Payment Gateway for Nuvei</strong> requires WooCommerce version %s or later.',
+						     . esc_html__( sprintf( 'WooCommerce Nuvei Gateway requires WooCommerce version %s or later.',
 								NUVEI_SUPPORT_WC ), 'wc-nuvei' )
 						     . '</p></div>';
 					} );
